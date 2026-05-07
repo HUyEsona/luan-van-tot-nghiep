@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Food Recognition - Nhận diện món ăn Việt Nam</title>
+    <link rel="stylesheet" href="/CSS/style.css">
+    <script src="/JS/index.js"></script>
+</head>
+<body>
+<!-- ================= HEADER + NAV ================= -->
+<div class="header" id="home">
+    <div class="header-content">
+        <div class="logo">
+            <div class="icon-box">🍴</div>
+            <h1 class="title">Food Recognition</h1>
+        </div>
+        
+        <nav class="nav-menu">
+            <a href="/" class="active">Trang chủ</a>
+            <a href="/navigation_menu/about.html">Giới thiệu</a>
+            <a href="/navigation_menu/reason.html">Lý do</a>
+            <a href="/navigation_menu/contact.html">Liên hệ</a>
+        </nav>
+    </div>
+</div>
+
+<!-- ================= MAIN ================= -->
+<div class="container">
+    <div class="main-layout">
+        <!-- Banner -->
+        <div class="banner">
+            <h2 class="banner-title">
+                Nhận diện món ăn Việt Nam và hiểu rõ dinh dưỡng!
+            </h2>
+        </div>
+
+        <!-- Upload content -->
+        <div class="content">
+            <div id="uploadSection">
+                <div class="upload-text upload-title">
+                    Tải ảnh món ăn lên để phân tích
+                </div>
+
+                <div class="upload-btn"
+                     onclick="document.getElementById('fileInput').click()">
+                    Chọn ảnh món ăn
+                </div>
+
+                <div class="upload-text">Hỗ trợ nhận diện 30 món ăn Việt Nam phổ biến</div>
+
+                <input type="file" id="fileInput" accept="image/*" />
+            </div>
+
+            <div id="previewSection" class="card-image hidden">
+                <img id="previewImage" class="image" alt="Preview" />
+                <div class="button-row">
+                    <button class="btn btn-success" onclick="analyzeFood()">Phân tích</button>
+                    <button class="btn btn-gray" onclick="reset()">Hủy</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= SCRIPT ================= -->
+</body>
+</html>

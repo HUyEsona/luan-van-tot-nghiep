@@ -1,0 +1,211 @@
+{
+  "dataset_name": "30 Vietnamese Foods",
+  "description": "Dataset ảnh món ăn Việt Nam với 30 lớp, chia sẵn Train/Validate/Test",
+  "source": "https://www.kaggle.com/datasets/quandang/vietnamese-foods",
+  "total_images": 25136,
+  "num_classes": 30,
+  "splits": {
+    "train": 17581,
+    "validation": 2515,
+    "test": 5040
+  },
+  "image_size": [
+    224,
+    224,
+    3
+  ],
+  "preprocessing": "tensorflow.keras.applications.resnet50.preprocess_input (ImageNet stats)",
+  "data_augmentation_train": {
+    "rotation_range": 20,
+    "width_shift_range": 0.2,
+    "height_shift_range": 0.2,
+    "shear_range": 0.2,
+    "zoom_range": 0.2,
+    "horizontal_flip": true,
+    "fill_mode": "nearest"
+  },
+  "classes": [
+    "Banh Beo",
+    "Banh Bot Loc",
+    "Banh Can",
+    "Banh Canh",
+    "Banh Chung",
+    "Banh Cuon",
+    "Banh Duc",
+    "Banh Gio",
+    "Banh Khot",
+    "Banh Mi",
+    "Banh Pia",
+    "Banh Tet",
+    "Banh Trang Nuong",
+    "Banh Xeo",
+    "Bun Bo Hue",
+    "Bun Dau Mam Tom",
+    "Bun Mam",
+    "Bun Rieu",
+    "Bun Thit Nuong",
+    "Ca Kho To",
+    "Canh Chua",
+    "Cao Lau",
+    "Chao Long",
+    "Com Tam",
+    "Goi Cuon",
+    "Hu Tieu",
+    "Mi Quang",
+    "Nem Chua",
+    "Pho",
+    "Xoi Xeo"
+  ],
+  "class_distribution": {
+    "Banh Beo": {
+      "train": 451,
+      "validation": 65,
+      "test": 129
+    },
+    "Banh Bot Loc": {
+      "train": 503,
+      "validation": 73,
+      "test": 144
+    },
+    "Banh Can": {
+      "train": 520,
+      "validation": 75,
+      "test": 149
+    },
+    "Banh Canh": {
+      "train": 674,
+      "validation": 97,
+      "test": 193
+    },
+    "Banh Chung": {
+      "train": 354,
+      "validation": 50,
+      "test": 102
+    },
+    "Banh Cuon": {
+      "train": 798,
+      "validation": 114,
+      "test": 228
+    },
+    "Banh Duc": {
+      "train": 463,
+      "validation": 66,
+      "test": 133
+    },
+    "Banh Gio": {
+      "train": 448,
+      "validation": 64,
+      "test": 129
+    },
+    "Banh Khot": {
+      "train": 584,
+      "validation": 84,
+      "test": 167
+    },
+    "Banh Mi": {
+      "train": 935,
+      "validation": 133,
+      "test": 268
+    },
+    "Banh Pia": {
+      "train": 310,
+      "validation": 45,
+      "test": 89
+    },
+    "Banh Tet": {
+      "train": 480,
+      "validation": 68,
+      "test": 138
+    },
+    "Banh Trang Nuong": {
+      "train": 556,
+      "validation": 80,
+      "test": 159
+    },
+    "Banh Xeo": {
+      "train": 821,
+      "validation": 117,
+      "test": 235
+    },
+    "Bun Bo Hue": {
+      "train": 1071,
+      "validation": 153,
+      "test": 306
+    },
+    "Bun Dau Mam Tom": {
+      "train": 640,
+      "validation": 92,
+      "test": 184
+    },
+    "Bun Mam": {
+      "train": 541,
+      "validation": 77,
+      "test": 155
+    },
+    "Bun Rieu": {
+      "train": 805,
+      "validation": 115,
+      "test": 231
+    },
+    "Bun Thit Nuong": {
+      "train": 522,
+      "validation": 75,
+      "test": 150
+    },
+    "Ca Kho To": {
+      "train": 473,
+      "validation": 67,
+      "test": 136
+    },
+    "Canh Chua": {
+      "train": 577,
+      "validation": 83,
+      "test": 165
+    },
+    "Cao Lau": {
+      "train": 432,
+      "validation": 62,
+      "test": 124
+    },
+    "Chao Long": {
+      "train": 751,
+      "validation": 107,
+      "test": 215
+    },
+    "Com Tam": {
+      "train": 659,
+      "validation": 94,
+      "test": 189
+    },
+    "Goi Cuon": {
+      "train": 598,
+      "validation": 85,
+      "test": 172
+    },
+    "Hu Tieu": {
+      "train": 688,
+      "validation": 98,
+      "test": 197
+    },
+    "Mi Quang": {
+      "train": 618,
+      "validation": 89,
+      "test": 177
+    },
+    "Nem Chua": {
+      "train": 379,
+      "validation": 54,
+      "test": 109
+    },
+    "Pho": {
+      "train": 564,
+      "validation": 81,
+      "test": 162
+    },
+    "Xoi Xeo": {
+      "train": 366,
+      "validation": 52,
+      "test": 105
+    }
+  }
+}

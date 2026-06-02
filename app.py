@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 import io
 import os
-from nutrition import get_nutrition_with_fallback
+from nutrition import get_nutrition_with_fallback, get_healthy_recommendations
 
 app = Flask(__name__)
 CORS(app)
@@ -105,14 +105,23 @@ def predict():
                     'index': int(idx)
                 })
         
+        # 1. Lấy tên món ăn được dự đoán cao nhất
         top_prediction_name = results[0]['name']
+        
+        # 2. Lấy thông tin dinh dưỡng món gốc
         nutrition_info = get_nutrition_with_fallback(top_prediction_name)
+        
+        # >>> PHẦN THÊM MỚI TẠI ĐÂY <<<
+        # 3. Lấy danh sách 3 món ăn lành mạnh hơn để thay thế từ thuật toán lý thuyết đồ thị/khoảng cách
+        healthy_recommendations = get_healthy_recommendations(top_prediction_name, top_k=3)
+        # >>> --------------------- <<<
         
         return jsonify({
             'status': 'success',
             'model': 'ResNet50',
             'predictions': results,
             'nutrition': nutrition_info,
+            'recommendations': healthy_recommendations,  # Bổ sung key này để truyền mảng dữ liệu về Frontend
             'total_classes': len(FOOD_CLASSES)
         })
     

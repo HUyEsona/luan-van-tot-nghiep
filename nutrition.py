@@ -1,5 +1,5 @@
-import requests
-from typing import Dict, Optional
+import math  # Thêm import này ở đầu file nutrition.py
+from typing import Dict, Optional, List
 
 # Database dinh dưỡng các món ăn Việt Nam (mỗi khẩu phần ~300-400g)
 NUTRITION_DATABASE = {
@@ -363,4 +363,100 @@ def format_nutrition_display(nutrition: Dict) -> str:
     if nutrition.get('note'):
         html += f"<p><em>{nutrition['note']}</em></p>"
     
+    return html
+
+
+def get_healthy_recommendations(food_name: str, top_k: int = 3) -> List[Dict]:
+    """
+    Hàm đề xuất các món ăn lành mạnh hơn thay thế cho món ăn gốc.
+    Tiêu chí: Ít chất béo hơn, calo không vượt quá nhiều, 
+    và cấu trúc dinh dưỡng (Protein, Carbs) gần với món gốc nhất.
+    
+    Args:
+        food_name: Tên món ăn gốc vừa được nhận diện
+        top_k: Số lượng món ăn muốn đề xuất (Mặc định lấy top 3)
+    Returns:
+        Danh sách các dictionary chứa thông tin món ăn được đề xuất kèm chỉ số tối ưu
+    """
+    # Lấy thông tin dinh dưỡng của món ăn gốc
+    source_nutrition = get_nutrition_info(food_name)
+    
+    # Nếu món ăn gốc không tồn tại hoặc chưa có dữ liệu dinh dưỡng
+    if not source_nutrition or source_nutrition.get('calories') is None:
+        return []
+
+    s_calories = source_nutrition['calories']
+    s_fat = source_nutrition['fat']
+    s_protein = source_nutrition['protein']
+    s_carbs = source_nutrition['carbs']
+
+    recommendations = []
+
+    for name, data in NUTRITION_DATABASE.items():
+        # Điều kiện 1: Không tự đề xuất chính nó
+        if name.lower() == food_name.lower():
+            continue
+        
+        # Điều kiện 2 (Lọc thô): 
+        # - Phải ít dầu mỡ (chất béo) hơn món gốc: data['fat'] < s_fat
+        # - Lượng Calo tương đương hoặc thấp hơn (cho phép sai số tối đa +50 kcal để không bỏ sót các món giàu đạm)
+        if data['fat'] < s_fat and data['calories'] <= (s_calories + 50):
+            
+            # Tính khoảng cách Euclidean giữa Protein và Carbs 
+            # Khoảng cách càng nhỏ chứng tỏ cấu trúc bữa ăn càng tương đồng về độ no và năng lượng hoạt động
+            distance = math.sqrt((data['protein'] - s_protein)**2 + (data['carbs'] - s_carbs)**2)
+            
+            # Tính toán các chỉ số cắt giảm để hiển thị lên UI
+            fat_reduced = s_fat - data['fat']
+            calories_saved = s_calories - data['calories']
+            
+            rec_item = {
+                'name': name,
+                **data,
+                'distance': distance,          # Dùng để sắp xếp
+                'fat_reduced': fat_reduced,    # Lượng chất béo giảm được
+                'calories_saved': calories_saved # Lượng calo cắt giảm được
+            }
+            recommendations.append(rec_item)
+
+    # Sắp xếp danh sách đề xuất: Khoảng cách (distance) càng NHỎ càng đứng TRƯỚC
+    recommendations.sort(key=lambda x: x['distance'])
+
+    # Trả về top_k kết quả tối ưu nhất
+    return recommendations[:top_k]
+
+
+def format_recommendations_display(recs: List[Dict], source_name: str) -> str:
+    """
+    Format danh sách các món ăn đề xuất thành chuỗi HTML để render ra giao diện Frontend.
+    """
+    if not recs:
+        return "<p style='color: #6c757d;'>Hiện chưa có món ăn thay thế phù hợp đạt tiêu chí lành mạnh hơn trong hệ thống.</p>"
+        
+    html = f"<h4 style='color: #28a745; margin-top: 20px;'>Gợi ý giải pháp thay thế lành mạnh cho món '{source_name}':</h4>"
+    html += "<div class='recommendation-list' style='display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;'>"
+    
+    for item in recs:
+        # Chuẩn bị chuỗi text hiển thị lượng calo tăng/giảm
+        if item['calories_saved'] > 0:
+            cal_text = f"<span style='color: #28a745;'>Giảm {item['calories_saved']} kcal</span>"
+        elif item['calories_saved'] < 0:
+            cal_text = f"<span style='color: #dc3545;'>Tăng {abs(item['calories_saved'])} kcal</span>"
+        else:
+            cal_text = "Calo tương đương"
+
+        html += f"""
+        <div class='rec-card' style='border: 1px solid #ced4da; border-left: 5px solid #28a745; padding: 15px; border-radius: 6px; background-color: #f8fff9; min-width: 260px; flex: 1;'>
+            <h5 style='margin: 0 0 10px 0; color: #155724; font-size: 16px;'>{item['name']}</h5>
+            <p style='margin: 4px 0;'><strong>Calories:</strong> {item['calories']} kcal ({cal_text})</p>
+            <p style='margin: 4px 0;'><strong>Chất béo:</strong> {item['fat']}g <span style='color: #28a745;'>(Ít hơn {item['fat_reduced']}g dầu mỡ)</span></p>
+            <p style='margin: 4px 0; font-size: 13px; color: #6c757d;'>Đạm (Protein): {item['protein']}g | Tinh bột (Carbs): {item['carbs']}g</p>
+            <p style='margin: 8px 0 4px 0;'><strong>Điểm cộng sức khỏe:</strong></p>
+            <ul style='margin: 0; padding-left: 20px; font-size: 13px;'>
+        """
+        for benefit in item['benefits']:
+            html += f"<li>{benefit}</li>"
+        html += "</ul></div>"
+        
+    html += "</div>"
     return html

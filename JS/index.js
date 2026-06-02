@@ -105,24 +105,24 @@ async function analyzeFood() {
     }
 }
 
-// HIỂN THỊ KẾT QUẢ
+// HIỂN THỊ KẾT QUẢ (ĐÃ CẬP NHẬT)
 function hienThiKetQua(data) {
     console.log('Đang render kết quả...');
     
-    const { predictions, model, nutrition } = data;
+    // Thêm "recommendations" bóc tách từ dữ liệu API trả về
+    const { predictions, model, nutrition, recommendations } = data;
     const srcAnhHienTai = document.getElementById('previewImage').src;
     
-    // Xây dựng HTML
-    let html = taoHTMLKetQua(srcAnhHienTai, predictions, model, nutrition);
+    // Truyền thêm biến recommendations vào hàm tạo HTML
+    let html = taoHTMLKetQua(srcAnhHienTai, predictions, model, nutrition, recommendations);
     
     // Cập nhật DOM
     document.getElementById('previewSection').innerHTML = html;
 }
 
-// TẠO HTML KẾT QUẢ
-function taoHTMLKetQua(srcAnh, predictions, model, nutrition) {
+// TẠO HTML KẾT QUẢ (ĐÃ CẬP NHẬT)
+function taoHTMLKetQua(srcAnh, predictions, model, nutrition, recommendations) {
     let html = `
-        <!-- Hiển thị ảnh -->
         <div style="text-align: center; margin-bottom: 20px;">
             <img src="${srcAnh}" 
                  style="max-width: 100%; max-height: 400px; object-fit: contain; 
@@ -131,7 +131,6 @@ function taoHTMLKetQua(srcAnh, predictions, model, nutrition) {
         </div>
         
         <div style="padding: 24px; text-align: left;">
-            <!-- Header -->
             <div style="background: linear-gradient(135deg, #F97316 0%, #EF4444 100%); 
                         padding: 16px; border-radius: 8px; margin-bottom: 20px; color: white;">
                 <h3 style="margin: 0;">Kết quả nhận diện món ăn</h3>
@@ -140,13 +139,11 @@ function taoHTMLKetQua(srcAnh, predictions, model, nutrition) {
                 </p>
             </div>
             
-            <!-- Danh sách dự đoán -->
             ${taoDanhSachDuDoan(predictions)}
             
-            <!-- Thông tin dinh dưỡng -->
             ${nutrition ? taoThongTinDinhDuong(nutrition) : ''}
             
-            <!-- Button phân tích lại -->
+            ${recommendations ? taoThongTinDeXuat(recommendations) : ''}
             <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #E5E7EB;">
                 <button class="btn btn-gray" onclick="reset()" 
                         style="width: 100%; padding: 14px; font-size: 16px;">
@@ -231,7 +228,7 @@ function taoThongTinDinhDuong(nutrition) {
             </div>
         </div>
     `).join('');
-    
+
     // Tạo danh sách lợi ích
     const loiIchHTML = nutrition.benefits && nutrition.benefits.length > 0 ? `
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #D1FAE5;">
@@ -254,6 +251,63 @@ function taoThongTinDinhDuong(nutrition) {
                 ${cacOHTML}
             </div>
             ${loiIchHTML}
+        </div>
+    `;
+}
+
+// TẠO THÔNG TIN ĐỀ XUẤT THAY THẾ LÀNH MẠNH
+function taoThongTinDeXuat(recommendations) {
+    if (!recommendations || recommendations.length === 0) return '';
+    
+    const cacTheDeXuatHTML = recommendations.map(item => {
+        let textCaloTietKiem = '';
+        if (item.calories_saved > 0) {
+            textCaloTietKiem = `<span style="color: #10B981; font-weight: 600;">(Tiết kiệm ${item.calories_saved} kcal)</span>`;
+        } else if (item.calories_saved < 0) {
+            textCaloTietKiem = `<span style="color: #EF4444; font-weight: 600;">(Tăng ${Math.abs(item.calories_saved)} kcal)</span>`;
+        } else {
+            textCaloTietKiem = `<span style="color: #6B7280;">(Calo tương đương)</span>`;
+        }
+
+        const itemsLoiIch = item.benefits && item.benefits.length > 0 
+            ? item.benefits.map(b => `<li style="margin-bottom: 3px;">${b}</li>`).join('')
+            : '<li>Đang cập nhật dữ liệu...</li>';
+
+        return `
+            <div style="background: white; padding: 16px; border: 1px solid #E5E7EB; 
+                        border-left: 5px solid #10B981; border-radius: 8px; 
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 12px;">
+                <div style="font-weight: 600; font-size: 16px; color: #111827; margin-bottom: 6px;">
+                    Thay thế bằng: ${item.name}
+                </div>
+                <div style="font-size: 14px; color: #374151; line-height: 1.5;">
+                    <p style="margin: 4px 0;"><b>Calories:</b> ${item.calories} kcal ${textCaloTietKiem}</p>
+                    <p style="margin: 4px 0;"><b>Chất béo:</b> ${item.fat}g <span style="color: #10B981; font-weight: 600;">(Ít hơn ${item.fat_reduced}g dầu mỡ)</span></p>
+                    <p style="margin: 4px 0; font-size: 13px; color: #6B7280;">
+                        Đạm (Protein): ${item.protein}g | Tinh bột (Carbs): ${item.carbs}g | Xơ: ${item.fiber}g
+                    </p>
+                </div>
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #E5E7EB;">
+                    <div style="font-size: 13px; font-weight: 600; color: #065F46; margin-bottom: 4px;">
+                        Điểm cộng sức khỏe:
+                    </div>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #047857;">
+                        ${itemsLoiIch}
+                    </ul>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    return `
+        <div style="background: #EFF6FF; border: 2px solid #3B82F6; border-radius: 8px; 
+                    padding: 20px; margin-top: 20px; background-color: #F0FDF4; border-color: #10B981;">
+            <h4 style="color: #065F46; margin: 0 0 15px 0; font-size: 18px;">
+                Giải pháp thay thế ít dầu mỡ tốt cho sức khỏe
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+                ${cacTheDeXuatHTML}
+            </div>
         </div>
     `;
 }

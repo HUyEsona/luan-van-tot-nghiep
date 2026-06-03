@@ -155,7 +155,6 @@ function taoHTMLKetQua(srcAnh, predictions, model, nutrition, recommendations) {
     
     return html;
 }
-
 // TẠO DANH SÁCH DỰ ĐOÁN
 function taoDanhSachDuDoan(predictions) {
     return predictions.map((pred, index) => {
@@ -198,58 +197,85 @@ function taoDanhSachDuDoan(predictions) {
 function taoThongTinDinhDuong(nutrition) {
     if (!nutrition || nutrition.calories === null) return '';
     
-    // Tạo các ô dinh dưỡng
-    const cacO = [];
+    // 1. TÍNH TOÁN TỶ LỆ CHẤT ĐA LƯỢNG ĐỂ VẼ BIỂU ĐỒ TRÒN
+    const carbs = parseFloat(nutrition.carbs) || 0;
+    const protein = parseFloat(nutrition.protein) || 0;
+    const fat = parseFloat(nutrition.fat) || 0;
+    const tongMacro = carbs + protein + fat;
     
-    if (nutrition.calories) {
-        cacO.push({ nhan: 'Calories', giaTri: `${nutrition.calories} kcal` });
+    let carbsPct = 0, proteinPct = 0, fatPct = 0;
+    if (tongMacro > 0) {
+        carbsPct = Math.round((carbs / tongMacro) * 100);
+        proteinPct = Math.round((protein / tongMacro) * 100);
+        fatPct = 100 - carbsPct - proteinPct; // Đảm bảo tổng luôn bằng 100%
     }
-    if (nutrition.protein) {
-        cacO.push({ nhan: 'Protein', giaTri: `${nutrition.protein}g` });
-    }
-    if (nutrition.carbs) {
-        cacO.push({ nhan: 'Carbs', giaTri: `${nutrition.carbs}g` });
-    }
-    if (nutrition.fat) {
-        cacO.push({ nhan: 'Fat', giaTri: `${nutrition.fat}g` });
-    }
-    if (nutrition.fiber) {
-        cacO.push({ nhan: 'Fiber', giaTri: `${nutrition.fiber}g` });
-    }
-    if (nutrition.sodium) {
-        cacO.push({ nhan: 'Sodium', giaTri: `${nutrition.sodium}mg` });
-    }
+    
+    // 2. TẠO CÁC Ô CHỈ SỐ DINH DƯỠNG (Gán màu sắc tương ứng với biểu đồ)
+    const cacO = [];
+    if (nutrition.calories) cacO.push({ nhan: 'Calories', giaTri: `${nutrition.calories} kcal`, mau: '#EF4444' });
+    if (nutrition.protein) cacO.push({ nhan: 'Protein', giaTri: `${nutrition.protein}g (${proteinPct}%)`, mau: '#10B981' });
+    if (nutrition.carbs) cacO.push({ nhan: 'Carbs', giaTri: `${nutrition.carbs}g (${carbsPct}%)`, mau: '#3B82F6' });
+    if (nutrition.fat) cacO.push({ nhan: 'Fat', giaTri: `${nutrition.fat}g (${fatPct}%)`, mau: '#F59E0B' });
+    if (nutrition.fiber) cacO.push({ nhan: 'Fiber', giaTri: `${nutrition.fiber}g`, mau: '#4B5563' });
+    if (nutrition.sodium) cacO.push({ nhan: 'Sodium', giaTri: `${nutrition.sodium}mg`, mau: '#4B5563' });
     
     const cacOHTML = cacO.map(o => `
-        <div style="background: white; padding: 12px; border-radius: 6px;">
-            <div style="color: #6B7280; font-size: 12px;">${o.nhan}</div>
-            <div style="font-size: 20px; font-weight: bold; color: #059669;">
-                ${o.giaTri}
-            </div>
+        <div style="background: white; padding: 10px; border-radius: 8px; border: 1px solid #E5E7EB;">
+            <div style="color: #6B7280; font-size: 11px; font-weight: 500;">${o.nhan}</div>
+            <div style="font-size: 15px; font-weight: bold; color: ${o.mau}; margin-top: 2px;">${o.giaTri}</div>
         </div>
     `).join('');
-
-    // Tạo danh sách lợi ích
-    const loiIchHTML = nutrition.benefits && nutrition.benefits.length > 0 ? `
-        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #D1FAE5;">
-            <div style="font-weight: 600; color: #065F46; margin-bottom: 8px;">
-                Lợi ích sức khỏe:
+    
+    // 3. TẠO BIỂU ĐỒ TRÒN DẠNG DONUT CHART (Sử dụng conic-gradient)
+    const bieuDoHTML = tongMacro > 0 ? `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; 
+                    background: white; padding: 12px; border-radius: 10px; border: 1px solid #E5E7EB; min-width: 120px;">
+            
+            <div style="width: 80px; height: 80px; border-radius: 50%;
+                        background: conic-gradient(
+                            #3B82F6 0% ${carbsPct}%, 
+                            #10B981 ${carbsPct}% ${carbsPct + proteinPct}%, 
+                            #F59E0B ${carbsPct + proteinPct}% 100%
+                        ); display: flex; align-items: center; justify-content: center;">
+                <div style="width: 48px; height: 48px; background: white; border-radius: 50%; 
+                            display: flex; align-items: center; justify-content: center; 
+                            font-size: 11px; font-weight: bold; color: #4B5563; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+                    Tỷ lệ
+                </div>
             </div>
-            <ul style="margin: 0; padding-left: 20px; color: #047857;">
-                ${nutrition.benefits.map(b => `<li style="margin-bottom: 5px;">${b}</li>`).join('')}
+            
+            <div style="margin-top: 8px; font-size: 11px; width: 100%; color: #4B5563; font-weight: 500; line-height: 1.4;">
+                <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; background: #3B82F6; display: inline-block; border-radius: 50%;"></span> Carbs</div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; background: #10B981; display: inline-block; border-radius: 50%;"></span> Protein</div>
+                <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; background: #F59E0B; display: inline-block; border-radius: 50%;"></span> Fat</div>
+            </div>
+        </div>
+    ` : '';
+    
+    // 4. DANH SÁCH LỢI ÍCH SỨC KHỎE
+    const loiIchHTML = nutrition.benefits && nutrition.benefits.length > 0 ? `
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #10B981;">
+            <div style="font-weight: 600; color: #065F46; font-size: 13px; margin-bottom: 4px;">Lợi ích sức khỏe:</div>
+            <ul style="margin: 0; padding-left: 18px; color: #047857; font-size: 13px; line-height: 1.5;">
+                ${nutrition.benefits.map(b => `<li style="margin-bottom: 3px;">${b}</li>`).join('')}
             </ul>
         </div>
     ` : '';
     
+    // TRẢ VỀ KHỐI GIAO DIỆN: Áp dụng Flexbox nằm ngang (Lưới chỉ số bên trái - Biểu đồ bên phải)
     return `
-        <div style="background: #F0FDF4; border: 2px solid #10B981; border-radius: 8px; 
-                    padding: 20px; margin-top: 20px;">
-            <h4 style="color: #065F46; margin: 0 0 15px 0; font-size: 18px;">
-                Thông tin dinh dưỡng - ${nutrition.name}
+        <div style="background: #F0FDF4; border: 2px solid #10B981; border-radius: 12px; padding: 16px;">
+            <h4 style="color: #065F46; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">
+                📊 Chỉ số & Tỷ lệ dinh dưỡng - ${nutrition.name}
             </h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                ${cacOHTML}
+            
+            <div style="display: flex; gap: 12px; align-items: stretch;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1;">
+                    ${cacOHTML}
+                </div>
+                ${bieuDoHTML}
             </div>
+            
             ${loiIchHTML}
         </div>
     `;

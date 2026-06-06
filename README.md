@@ -1,6 +1,8 @@
 # Nhận diện món ăn Việt Nam bằng Deep Learning
 
-Đồ án tốt nghiệp — Nhóm DL22  
+Đồ án luận văn tốt nghiệp — Nhóm DL22  
+Tên: Nguyễn Gia Huy
+MSSV: 2251320012
 Mô hình: **ResNet50 V2** (IMAGENET1K_V2) — 3 giai đoạn transfer learning  
 Tập dữ liệu: **30 món ăn Việt Nam**, 25.136 ảnh  
 Kết quả: **85.02%** (normal) | **86.59%** (TTA ×5)

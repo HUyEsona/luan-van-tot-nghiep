@@ -6,16 +6,28 @@
     <title>Food Recognition - Nhận diện món ăn Việt Nam</title>
     <link rel="stylesheet" href="/CSS/style.css">
     <script src="/JS/index.js"></script>
+    <style>
+        /* CSS bổ sung để căn chỉnh khu vực hiển thị camera */
+        .hidden { display: none !important; }
+        .camera-box { width: 100%; max-width: 450px; height: 320px; background: #000; margin: 15px auto; border-radius: 8px; overflow: hidden; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .button-row { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-gray { background-color: #6c757d; color: white; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .method-tabs { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-<!-- ================= HEADER + NAV ================= -->
+
 <div class="header" id="home">
     <div class="header-content">
         <div class="logo">
             <div class="icon-box">🍴</div>
             <h1 class="title">Food Recognition</h1>
         </div>
-        
         <nav class="nav-menu">
             <a href="/" class="active">Trang chủ</a>
             <a href="/navigation_menu/about.html">Giới thiệu</a>
@@ -25,42 +37,66 @@
     </div>
 </div>
 
-<!-- ================= MAIN ================= -->
 <div class="container">
     <div class="main-layout">
-        <!-- Banner -->
         <div class="banner">
-            <h2 class="banner-title">
-                Hiểu món ăn của bạn để sống khỏe hơn!
-            </h2>
+            <h2 class="banner-title">Nhận diện món ăn Việt Nam và hiểu rõ dinh dưỡng!</h2>
         </div>
 
-        <!-- Upload content -->
         <div class="content">
-            <div id="uploadSection">
-                <div class="upload-text upload-title">
-                    Tải ảnh món ăn lên để phân tích
-                </div>
+            <div id="imageMethodSection">
+                <div id="uploadSection">
+                    <div class="upload-text upload-title">Tải ảnh món ăn lên để phân tích</div>
+                    
+                    <div style="display: flex; gap: 15px; justify-content: center; align-items: center; max-width: 450px; margin: 0 auto 15px auto;">
+                        
+                        <div class="upload-btn" onclick="document.getElementById('fileInput').click()" 
+                             style="flex: 1; margin: 0; padding: 12px; font-size: 15px; font-weight: 600; text-align: center; white-space: nowrap; cursor: pointer;">
+                            Chọn ảnh món ăn
+                        </div>
 
-                <div class="upload-btn"
-                     onclick="document.getElementById('fileInput').click()">
-                    Chọn ảnh món ăn
-                </div>
+                        <button class="btn btn-primary" onclick="switchMethod('video')" 
+                                style="flex: 1; height: 100%; padding: 12px; font-size: 15px; font-weight: 600; white-space: nowrap; border-radius: 8px;">
+                            Quét Camera
+                        </button>
+                        
+                    </div>
 
-                <input type="file" id="fileInput" accept="image/*" />
+                    <input type="file" id="fileInput" accept="image/*" />
+                </div>
+                
+                <div id="previewSection" class="card-image hidden">
+                    <img id="previewImage" class="image" alt="Preview" />
+                    <div class="button-row">
+                        <button class="btn btn-success" onclick="analyzeFood()">Phân tích ảnh</button>
+                        <button class="btn btn-gray" onclick="resetImage()">Hủy</button>
+                    </div>
+                </div>
             </div>
 
-            <div id="previewSection" class="card-image hidden">
-                <img id="previewImage" class="image" alt="Preview" />
+            <div id="videoMethodSection" class="hidden">
+                <div class="camera-box">
+                    <video id="webcamView" autoplay playsinline muted></video>
+                </div>
+
                 <div class="button-row">
-                    <button class="btn btn-success" onclick="analyzeFood()">Phân tích</button>
-                    <button class="btn btn-gray" onclick="reset()">Hủy</button>
+                    <button class="btn btn-primary" id="btnOpenCam" onclick="initWebcam()">Mở Camera</button>
+                    <button class="btn btn-danger" id="btnScanCam" onclick="captureLiveVideo()" disabled>Bắt đầu quét (3s)</button>
+                    <!-- <button class="btn btn-gray" onclick="document.getElementById('videoFileInput').click()">Tải Video lên</button> -->
                 </div>
+                <input type="file" id="videoFileInput" accept="video/*" class="hidden" onchange="handleVideoUpload(this)" />
             </div>
+
+            <div id="resultDisplaySection" class="hidden" style="margin-top: 30px; padding: 20px; border: 1px solid #eee; background: #fff; border-radius: 8px;">
+                <h3 style="color:#333; border-bottom: 2px solid #28a745; padding-bottom:8px;">Kết quả phân tích</h3>
+                <div id="predictionOutput"></div>
+                <div id="nutritionOutput" style="margin-top:15px;"></div>
+                <div id="recommendationOutput" style="margin-top:20px; padding-top:15px; border-top:1px dashed #ccc;"></div>
+            </div>
+
         </div>
     </div>
 </div>
 
-<!-- ================= SCRIPT ================= -->
 </body>
 </html>

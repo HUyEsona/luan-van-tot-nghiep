@@ -1,29 +1,46 @@
 let anhHienTai = null;
+let luongVideoHienTai = null; // Biến lưu luồng camera nhị phân
+let mediaRecorder = null;
+let recordedChunks = [];
+let localStream = null;
 
 const API_URL = 'http://localhost:5000';
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('App đã khởi động');
     
-    // Lắng nghe sự kiện chọn file
+    // Lắng nghe sự kiện chọn file ảnh cũ
     document.getElementById('fileInput').addEventListener('change', xuLyChonFile);
     
-    // Kiểm tra server
+    // Kiểm tra server kết nối
     kiemTraServer();
 });
 
-// ===== XỬ LÝ CHỌN FILE =====
+// ===== CHUYỂN ĐỔI PHƯƠNG THỨC ĐẦU VÀO (TABS) =====
+function switchMethod(method) {
+    console.log(`Chuyển sang chế độ: ${method}`);
+    const imageSection = document.getElementById('imageMethodSection');
+    const videoSection = document.getElementById('videoMethodSection');
+    
+    if (method === 'image') {
+        imageSection.classList.remove('hidden');
+        videoSection.classList.add('hidden');
+        tatWebcam();
+    } else {
+        imageSection.classList.add('hidden');
+        videoSection.classList.remove('hidden');
+    }
+}
+
+// ===== XỬ LÝ CHỌN FILE ẢNH TĨNH =====
 function xuLyChonFile(event) {
     const file = event.target.files[0];
-    
     if (!file) {
         console.warn('Không có file nào được chọn');
         return;
     }
     
-    console.log(`File: ${file.name} (${file.size} bytes)`);
-    
-    // Đọc và hiển thị ảnh preview
+    console.log(`File ảnh: ${file.name} (${file.size} bytes)`);
     const reader = new FileReader();
     reader.onload = function(e) {
         anhHienTai = file;
@@ -37,90 +54,202 @@ function xuLyChonFile(event) {
     reader.readAsDataURL(file);
 }
 
-// HIỂN THỊ PREVIEW 
 function hienThiPreview(srcAnh) {
     document.getElementById('previewImage').src = srcAnh;
     document.getElementById('uploadSection').classList.add('hidden');
     document.getElementById('previewSection').classList.remove('hidden');
 }
 
-// PHÂN TÍCH ẢNH
-async function analyzeFood() {
-    console.log('Bắt đầu phân tích...');
+// ===== XỬ LÝ ĐIỀU KHIỂN LIVE WEBCAM CAMERA =====
+async function initWebcam() {
+    console.log('Đang yêu cầu quyền camera...');
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        document.getElementById('webcamView').srcObject = localStream;
+        document.getElementById('btnScanCam').disabled = false;
+        document.getElementById('btnOpenCam').innerText = "🔄 Camera Sẵn Sàng";
+        console.log('Kết nối thành công Live Webcam Stream.');
+    } catch (err) {
+        console.error('Lỗi truy cập camera:', err);
+        alert("Hệ thống không tìm thấy thiết bị thu hình camera hoặc ứng dụng bị từ chối cấp quyền!");
+    }
+}
+
+function tatWebcam() {
+    if (localStream) {
+        console.log('Đang tắt luồng camera để giải phóng phần cứng...');
+        localStream.getTracks().forEach(track => track.stop());
+        document.getElementById('webcamView').srcObject = null;
+        document.getElementById('btnScanCam').disabled = true;
+        document.getElementById('btnOpenCam').innerText = "Mở Camera";
+        localStream = null;
+    }
+}
+
+// Ghi hình ngắn trong 3 giây để lấy mẫu dữ liệu động chống rung lắc
+function captureLiveVideo() {
+    if (!localStream) return;
+    recordedChunks = [];
     
-    // Kiểm tra dữ liệu
+    try {
+        mediaRecorder = new MediaRecorder(localStream, { mimeType: 'video/webm' });
+    } catch (e) {
+        // Dự phòng cho một số trình duyệt không hỗ trợ định dạng webm mặc định
+        mediaRecorder = new MediaRecorder(localStream);
+    }
+    
+    mediaRecorder.ondataavailable = (e) => { 
+        if (e.data.size > 0) recordedChunks.push(e.data); 
+    };
+    
+    mediaRecorder.onstop = () => {
+        const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+        console.log(`Đã đóng gói video từ Camera: ${videoBlob.size} bytes`);
+        guiVideoSangBackend(videoBlob, "live_stream_capture.webm");
+    };
+
+    mediaRecorder.start();
+    const btnQuet = document.getElementById('btnScanCam');
+    btnQuet.innerText = "⏳ Đang quét món ăn (3s)...";
+    btnQuet.disabled = true;
+
+    setTimeout(() => {
+        mediaRecorder.stop();
+        btnQuet.innerText = "Bắt đầu quét (3s)";
+        btnQuet.disabled = false;
+    }, 3000);
+}
+
+// Xử lý khi user chọn file video có sẵn từ máy tính
+function handleVideoUpload(input) {
+    if (input.files.length > 0) {
+        const file = input.files[0];
+        console.log(`Tải file video: ${file.name} (${file.size} bytes)`);
+        guiVideoSangBackend(file, file.name);
+    }
+}
+
+// ===== CALL API DỰ ĐOÁN ẢNH TĨNH =====
+async function analyzeFood() {
+    console.log('Bắt đầu phân tích ảnh tĩnh...');
     if (!anhHienTai) {
-        console.error('Thiếu ảnh:', { anhHienTai });
-        alert('Có lỗi xảy ra. Vui lòng thử lại!');
+        alert('Có lỗi xảy ra. Vui lòng chọn ảnh trước!');
         return;
     }
     
     const btnPhanTich = document.querySelector('.btn-success');
     const textGoc = btnPhanTich.textContent;
-    
-    // Đổi trạng thái button
     btnPhanTich.textContent = 'Đang phân tích...';
     btnPhanTich.disabled = true;
     
     try {
-        // Chuẩn bị dữ liệu gửi lên
         const formData = new FormData();
         formData.append('image', anhHienTai);
         
-        console.log(`Gửi request đến: ${API_URL}/api/predict`);
-        
-        // Gọi API
         const response = await fetch(`${API_URL}/api/predict`, {
             method: 'POST',
             body: formData
         });
         
-        console.log(`Trạng thái response: ${response.status}`);
-        
         const data = await response.json();
-        console.log('Dữ liệu trả về:', data);
-        
-        // Xử lý kết quả
         if (data.status === 'success') {
             hienThiKetQua(data);
         } else {
-            const thongBaoLoi = data.message || 'Không thể phân tích ảnh';
-            console.error('Lỗi từ API:', thongBaoLoi);
-            alert(`Lỗi: ${thongBaoLoi}`);
+            alert(`Lỗi: ${data.message || 'Không thể phân tích ảnh'}`);
         }
-        
     } catch (error) {
         console.error('Lỗi kết nối:', error);
-        alert(
-            'Không thể kết nối đến server!\n\n' +
-            `Chi tiết: ${error.message}\n\n` +
-            'Kiểm tra:\n' +
-            '1. Flask server đã chạy chưa?\n' +
-            '2. Đang mở từ http://localhost:5000?'
-        );
+        alert(`Không thể kết nối đến server: ${error.message}`);
     } finally {
-        // Khôi phục button
         btnPhanTich.textContent = textGoc;
         btnPhanTich.disabled = false;
     }
 }
 
-// HIỂN THỊ KẾT QUẢ (ĐÃ CẬP NHẬT)
-function hienThiKetQua(data) {
-    console.log('Đang render kết quả...');
+// ===== CALL API DỰ ĐOÁN CHUỖI VIDEO / CAMERA STREAM =====
+async function guiVideoSangBackend(videoBlob, filename) {
+    console.log('Đang truyền gói tin video sang API...');
     
-    // Thêm "recommendations" bóc tách từ dữ liệu API trả về
+    const displaySection = document.getElementById('resultDisplaySection');
+    displaySection.classList.remove('hidden');
+    document.getElementById('predictionOutput').innerHTML = `
+        <div style="padding: 15px; background: #FFFBEB; border: 1px solid #F59E0B; border-radius: 6px; color: #B45309;">
+            ⏳ <b>Hệ thống đang bóc tách khung hình video và chạy thuật toán toán học... Vui lòng đợi trong giây lát!</b>
+        </div>
+    `;
+    document.getElementById('nutritionOutput').innerHTML = "";
+    document.getElementById('recommendationOutput').innerHTML = "";
+
+    try {
+        const formData = new FormData();
+        formData.append('video', videoBlob, filename);
+
+        const response = await fetch(`${API_URL}/api/predict-video`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        console.log('Dữ liệu video trả về từ API:', data);
+
+        if (data.status === 'success') {
+            // Đổ dữ liệu ra cấu trúc vùng hiển thị kết quả dùng chung của Video Tab
+            renderDuLieuVideo(data);
+        } else {
+            document.getElementById('predictionOutput').innerHTML = `
+                <p style="color:red; font-weight:bold;">⚠️ Lỗi cấu trúc: ${data.message || data.error}</p>
+            `;
+        }
+    } catch (error) {
+        console.error('Lỗi kết nối API Video:', error);
+        document.getElementById('predictionOutput').innerHTML = `
+            <p style="color:red; font-weight:bold;">❌ Mất kết nối đến Flask server: ${error.message}</p>
+        `;
+    }
+}
+
+// Render dữ liệu chuyên biệt dành cho khung hiển thị kết quả của Video
+function renderDuLieuVideo(data) {
+    const { predictions, nutrition, recommendations } = data;
+    
+    // 1. Hiển thị tên món ăn
+    const topPred = predictions[0];
+    document.getElementById('predictionOutput').innerHTML = `
+        <div style="margin-bottom: 12px; padding: 16px; background: #EFF6FF; border: 2px solid #3B82F6; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 600; font-size: 18px; color: #111827;">1. ${topPred.name}</div>
+                    <div style="color: #6B7280; font-size: 14px; margin-top: 4px;">Kết quả phân tích chuỗi hội tụ</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 24px; font-weight: bold; color: #059669;">${topPred.confidence.toFixed(1)}%</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 2. Hiển thị thông tin dinh dưỡng gốc (Tự động gọi lại cấu trúc hàm có sẵn của bạn)
+    if (nutrition) {
+        document.getElementById('nutritionOutput').innerHTML = taoThongTinDinhDuong(nutrition);
+    }
+
+    // 3. Hiển thị đề xuất thông minh (Tự động gọi lại cấu trúc hàm có sẵn của bạn)
+    if (recommendations) {
+        document.getElementById('recommendationOutput').innerHTML = taoThongTinDeXuat(recommendations);
+    }
+}
+
+// ===== HIỂN THỊ KẾT QUẢ CHO ẢNH TĨNH =====
+function hienThiKetQua(data) {
+    console.log('Đang kết xuất giao diện ảnh tĩnh...');
     const { predictions, model, nutrition, recommendations } = data;
     const srcAnhHienTai = document.getElementById('previewImage').src;
     
-    // Truyền thêm biến recommendations vào hàm tạo HTML
     let html = taoHTMLKetQua(srcAnhHienTai, predictions, model, nutrition, recommendations);
-    
-    // Cập nhật DOM
     document.getElementById('previewSection').innerHTML = html;
 }
 
-// TẠO HTML KẾT QUẢ (ĐÃ CẬP NHẬT)
+// ===== TẠO CẤU TRÚC HTML KẾT QUẢ CHO ẢNH TĨNH (Giữ nguyên của bạn) =====
 function taoHTMLKetQua(srcAnh, predictions, model, nutrition, recommendations) {
     let html = `
         <div style="text-align: center; margin-bottom: 20px;">
@@ -144,6 +273,7 @@ function taoHTMLKetQua(srcAnh, predictions, model, nutrition, recommendations) {
             ${nutrition ? taoThongTinDinhDuong(nutrition) : ''}
             
             ${recommendations ? taoThongTinDeXuat(recommendations) : ''}
+            
             <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #E5E7EB;">
                 <button class="btn btn-gray" onclick="reset()" 
                         style="width: 100%; padding: 14px; font-size: 16px;">
@@ -152,10 +282,9 @@ function taoHTMLKetQua(srcAnh, predictions, model, nutrition, recommendations) {
             </div>
         </div>
     `;
-    
     return html;
 }
-// TẠO DANH SÁCH DỰ ĐOÁN
+
 function taoDanhSachDuDoan(predictions) {
     return predictions.map((pred, index) => {
         const laTotNhat = index === 0;
@@ -193,11 +322,9 @@ function taoDanhSachDuDoan(predictions) {
     }).join('');
 }
 
-// TẠO THÔNG TIN DINH DƯỠNG 
 function taoThongTinDinhDuong(nutrition) {
     if (!nutrition || nutrition.calories === null) return '';
     
-    // 1. TÍNH TOÁN TỶ LỆ CHẤT ĐA LƯỢNG ĐỂ VẼ BIỂU ĐỒ TRÒN
     const carbs = parseFloat(nutrition.carbs) || 0;
     const protein = parseFloat(nutrition.protein) || 0;
     const fat = parseFloat(nutrition.fat) || 0;
@@ -207,10 +334,9 @@ function taoThongTinDinhDuong(nutrition) {
     if (tongMacro > 0) {
         carbsPct = Math.round((carbs / tongMacro) * 100);
         proteinPct = Math.round((protein / tongMacro) * 100);
-        fatPct = 100 - carbsPct - proteinPct; // Đảm bảo tổng luôn bằng 100%
+        fatPct = 100 - carbsPct - proteinPct;
     }
     
-    // 2. TẠO CÁC Ô CHỈ SỐ DINH DƯỠNG (Gán màu sắc tương ứng với biểu đồ)
     const cacO = [];
     if (nutrition.calories) cacO.push({ nhan: 'Calories', giaTri: `${nutrition.calories} kcal`, mau: '#EF4444' });
     if (nutrition.protein) cacO.push({ nhan: 'Protein', giaTri: `${nutrition.protein}g (${proteinPct}%)`, mau: '#10B981' });
@@ -226,11 +352,9 @@ function taoThongTinDinhDuong(nutrition) {
         </div>
     `).join('');
     
-    // 3. TẠO BIỂU ĐỒ TRÒN DẠNG DONUT CHART (Sử dụng conic-gradient)
     const bieuDoHTML = tongMacro > 0 ? `
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; 
                     background: white; padding: 12px; border-radius: 10px; border: 1px solid #E5E7EB; min-width: 120px;">
-            
             <div style="width: 80px; height: 80px; border-radius: 50%;
                         background: conic-gradient(
                             #3B82F6 0% ${carbsPct}%, 
@@ -243,7 +367,6 @@ function taoThongTinDinhDuong(nutrition) {
                     Tỷ lệ
                 </div>
             </div>
-            
             <div style="margin-top: 8px; font-size: 11px; width: 100%; color: #4B5563; font-weight: 500; line-height: 1.4;">
                 <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; background: #3B82F6; display: inline-block; border-radius: 50%;"></span> Carbs</div>
                 <div style="display: flex; align-items: center; gap: 4px;"><span style="width: 6px; height: 6px; background: #10B981; display: inline-block; border-radius: 50%;"></span> Protein</div>
@@ -252,7 +375,6 @@ function taoThongTinDinhDuong(nutrition) {
         </div>
     ` : '';
     
-    // 4. DANH SÁCH LỢI ÍCH SỨC KHỎE
     const loiIchHTML = nutrition.benefits && nutrition.benefits.length > 0 ? `
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #10B981;">
             <div style="font-weight: 600; color: #065F46; font-size: 13px; margin-bottom: 4px;">Lợi ích sức khỏe:</div>
@@ -262,26 +384,22 @@ function taoThongTinDinhDuong(nutrition) {
         </div>
     ` : '';
     
-    // TRẢ VỀ KHỐI GIAO DIỆN: Áp dụng Flexbox nằm ngang (Lưới chỉ số bên trái - Biểu đồ bên phải)
     return `
-        <div style="background: #F0FDF4; border: 2px solid #10B981; border-radius: 12px; padding: 16px;">
+        <div style="background: #F0FDF4; border: 2px solid #10B981; border-radius: 12px; padding: 16px; margin-top:15px;">
             <h4 style="color: #065F46; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">
-                📊 Chỉ số & Tỷ lệ dinh dưỡng - ${nutrition.name}
+                Chỉ số & Tỷ lệ dinh dưỡng - ${nutrition.name}
             </h4>
-            
             <div style="display: flex; gap: 12px; align-items: stretch;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1;">
                     ${cacOHTML}
                 </div>
                 ${bieuDoHTML}
             </div>
-            
             ${loiIchHTML}
         </div>
     `;
 }
 
-// TẠO THÔNG TIN ĐỀ XUẤT THAY THẾ LÀNH MẠNH
 function taoThongTinDeXuat(recommendations) {
     if (!recommendations || recommendations.length === 0) return '';
     
@@ -308,9 +426,9 @@ function taoThongTinDeXuat(recommendations) {
                 </div>
                 <div style="font-size: 14px; color: #374151; line-height: 1.5;">
                     <p style="margin: 4px 0;"><b>Calories:</b> ${item.calories} kcal ${textCaloTietKiem}</p>
-                    <p style="margin: 4px 0;"><b>Chất béo:</b> ${item.fat}g <span style="color: #10B981; font-weight: 600;">(Ít hơn ${item.fat_reduced}g dầu mỡ)</span></p>
+                    <p style="margin: 4px 0;"><b>Chất béo:</b> ${item.fat}g <span style="color: #10B981; font-weight: 600;">(Ít hơn ${item.fat_reduced || 0}g dầu mỡ)</span></p>
                     <p style="margin: 4px 0; font-size: 13px; color: #6B7280;">
-                        Đạm (Protein): ${item.protein}g | Tinh bột (Carbs): ${item.carbs}g | Xơ: ${item.fiber}g
+                        Đạm (Protein): ${item.protein}g | Tinh bột (Carbs): ${item.carbs}g | Xơ: ${item.fiber || 0}g
                     </p>
                 </div>
                 <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #E5E7EB;">
@@ -326,8 +444,7 @@ function taoThongTinDeXuat(recommendations) {
     }).join('');
 
     return `
-        <div style="background: #EFF6FF; border: 2px solid #3B82F6; border-radius: 8px; 
-                    padding: 20px; margin-top: 20px; background-color: #F0FDF4; border-color: #10B981;">
+        <div style="background: #F0FDF4; border: 2px solid #10B981; border-radius: 8px; padding: 20px; margin-top: 20px;">
             <h4 style="color: #065F46; margin: 0 0 15px 0; font-size: 18px;">
                 Giải pháp thay thế ít dầu mỡ tốt cho sức khỏe
             </h4>
@@ -338,17 +455,16 @@ function taoThongTinDeXuat(recommendations) {
     `;
 }
 
-// RESET VỀ BAN ĐẦU 
+// ===== RESET TOÀN BỘ TRẠNG THÁI HỆ THỐNG =====
 function reset() {
-    console.log('Đang reset...');
-    
-    // Xóa dữ liệu
+    console.log('Đang thực hiện reset...');
     anhHienTai = null;
+    tatWebcam();
     
-    // Reset input file
+    // Đặt lại input file ảnh tĩnh
     document.getElementById('fileInput').value = '';
     
-    // Reset HTML preview section
+    // Đặt lại cấu trúc DOM preview ảnh tĩnh gốc của bạn
     document.getElementById('previewSection').innerHTML = `
         <img id="previewImage" class="image" alt="Preview" />
         <div class="button-row">
@@ -357,18 +473,20 @@ function reset() {
         </div>
     `;
     
-    // Hiện upload section, ẩn preview section
+    // Ẩn/Hiện phân vùng về mặc định ban đầu
     document.getElementById('uploadSection').classList.remove('hidden');
     document.getElementById('previewSection').classList.add('hidden');
+    document.getElementById('resultDisplaySection').classList.add('hidden');
     
-    console.log('Reset hoàn tất');
+    console.log('Reset hoàn tất.');
 }
 
+// ===== KIỂM TRA ĐƯỜNG TRUYỀN SERVER FLASK =====
 function kiemTraServer() {
     fetch(`${API_URL}/api/health`)
         .then(res => res.json())
         .then(data => {
-            console.log('Server OK:', data);
+            console.log('Kết nối Server AI thành công:', data);
         })
         .catch(err => {
             console.error('Không kết nối được server:', err);
